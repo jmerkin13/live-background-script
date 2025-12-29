@@ -14,9 +14,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger('ghost_mpv')
 
 class GhostWindow(QWidget):
-    def __init__(self, video_path):
+    def __init__(self, video_path, speed=1.0):
         super().__init__()
         self.video_path = video_path
+        self.speed = speed
         self.mpv = None
 
         # Window setup
@@ -79,8 +80,8 @@ class GhostWindow(QWidget):
             self.mpv.play(self.video_path)
             
             # Example of IPC: Set speed to 1.0 (normal)
-            self.mpv.speed = 1.0
-            logger.info("MPV started successfully.")
+            self.mpv.speed = self.speed
+            logger.info(f"MPV started successfully with speed {self.speed}.")
             
         except Exception as e:
             logger.error(f"Failed to start MPV: {e}")
@@ -98,11 +99,12 @@ class GhostWindow(QWidget):
 def main():
     parser = argparse.ArgumentParser(description="Ghost Window MPV Player")
     parser.add_argument("video_path", help="Path to the video file to play")
+    parser.add_argument("--speed", type=float, default=1.0, help="Playback speed (default: 1.0)")
     args = parser.parse_args()
 
     app = QApplication(sys.argv)
     
-    window = GhostWindow(args.video_path)
+    window = GhostWindow(args.video_path, args.speed)
     window.show() # Initially show normal, then ghost_mode kicks in
     
     # If we wanted full screen desktop:
