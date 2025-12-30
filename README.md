@@ -41,20 +41,24 @@ pip install PyGObject==3.44.0
 This version launches `mpv` embedded in the window.
 
 ```bash
-python3 ghost_mpv.py /path/to/your/video.mp4
+python3 ghost_mpv.py /path/to/your/video.mp4 [--speed 0.8]
 ```
 
 *   **Features:** Hardware decoding (`--hwdec=nvdec`), infinite loop, IPC control socket enabled.
 *   **Performance:** Generally very efficient as MPV handles the rendering pipeline highly optimized.
+*   **Controls:**
+    *   `--speed`: Set playback speed (float, default: 1.0). Example: `--speed 0.5` for half speed.
 
 ### 2. GStreamer Implementation
 This version builds a custom GStreamer pipeline.
 
 ```bash
-python3 ghost_gstreamer.py /path/to/your/video.mp4
+python3 ghost_gstreamer.py /path/to/your/video.mp4 [--speed 0.8]
 ```
 
 *   **Pipeline:** `filesrc ! qtdemux ! h264parse ! nvh264dec ! glimagesink`
+*   **Controls:**
+    *   `--speed`: Set playback speed (float, default: 1.0).
 *   **Troubleshooting:** If the video does not play, check your GStreamer plugins:
     ```bash
     gst-inspect-1.0 nvcodec
