@@ -24,9 +24,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger('ghost_gstreamer')
 
 class GhostWindow(QWidget):
-    def __init__(self, video_path):
+    def __init__(self, video_path, speed=1.0):
         super().__init__()
         self.video_path = video_path
+        self.speed = speed
         self.pipeline = None
 
         # Window setup
@@ -100,7 +101,20 @@ class GhostWindow(QWidget):
             
             # Start playing
             self.pipeline.set_state(Gst.State.PLAYING)
-            logger.info("GStreamer pipeline started.")
+
+            if self.speed != 1.0:
+                 # Seek with rate
+                rc = self.pipeline.seek(
+                    self.speed,
+                    Gst.Format.TIME,
+                    Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE,
+                    Gst.SeekType.SET, 0,
+                    Gst.SeekType.NONE, 0
+                )
+                if not rc:
+                    logger.warning("Failed to set playback speed.")
+
+            logger.info(f"GStreamer pipeline started with speed {self.speed}.")
             
         except Exception as e:
             logger.error(f"Failed to launch pipeline: {e}")
@@ -142,11 +156,12 @@ class GhostWindow(QWidget):
 def main():
     parser = argparse.ArgumentParser(description="Ghost Window GStreamer Player")
     parser.add_argument("video_path", help="Path to the video file to play")
+    parser.add_argument("--speed", type=float, default=1.0, help="Playback speed (default: 1.0)")
     args = parser.parse_args()
 
     app = QApplication(sys.argv)
     
-    window = GhostWindow(args.video_path)
+    window = GhostWindow(args.video_path, args.speed)
     window.show()
     
     sys.exit(app.exec())
