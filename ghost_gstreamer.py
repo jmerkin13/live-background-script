@@ -29,6 +29,7 @@ class GhostWindow(QWidget):
         self.video_path = video_path
         self.speed = speed
         self.pipeline = None
+        self.initial_seek_done = False
 
         # Window setup
         self.setWindowTitle("Ghost Window (GStreamer)")
@@ -101,20 +102,7 @@ class GhostWindow(QWidget):
             
             # Start playing
             self.pipeline.set_state(Gst.State.PLAYING)
-
-            if self.speed != 1.0:
-                 # Seek with rate
-                rc = self.pipeline.seek(
-                    self.speed,
-                    Gst.Format.TIME,
-                    Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE,
-                    Gst.SeekType.SET, 0,
-                    Gst.SeekType.NONE, 0
-                )
-                if not rc:
-                    logger.warning("Failed to set playback speed.")
-
-            logger.info(f"GStreamer pipeline started with speed {self.speed}.")
+            logger.info(f"GStreamer pipeline started. Waiting for state change to set speed {self.speed}...")
             
         except Exception as e:
             logger.error(f"Failed to launch pipeline: {e}")
@@ -142,11 +130,42 @@ class GhostWindow(QWidget):
         msg_type = msg.type
         if msg_type == Gst.MessageType.EOS:
             logger.info("End of stream. Looping...")
-            self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, 0)
+            # When looping, we also want to preserve the speed
+            if self.speed != 1.0:
+                self.pipeline.seek(
+                    self.speed,
+                    Gst.Format.TIME,
+                    Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE,
+                    Gst.SeekType.SET, 0,
+                    Gst.SeekType.NONE, 0
+                )
+            else:
+                self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, 0)
+
         elif msg_type == Gst.MessageType.ERROR:
             err, debug = msg.parse_error()
             logger.error(f"GStreamer Error: {err} - {debug}")
             self.pipeline.set_state(Gst.State.NULL)
+
+        elif msg_type == Gst.MessageType.STATE_CHANGED:
+            # Check if the message comes from the pipeline
+            if msg.src == self.pipeline:
+                old_state, new_state, pending_state = msg.parse_state_changed()
+                # Once we are in PLAYING state (or PAUSED), we can seek
+                if new_state == Gst.State.PLAYING and not self.initial_seek_done and self.speed != 1.0:
+                    logger.info(f"Pipeline in PLAYING state. Setting speed to {self.speed}...")
+                    rc = self.pipeline.seek(
+                        self.speed,
+                        Gst.Format.TIME,
+                        Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE,
+                        Gst.SeekType.SET, 0,
+                        Gst.SeekType.NONE, 0
+                    )
+                    if rc:
+                        self.initial_seek_done = True
+                        logger.info("Playback speed set successfully.")
+                    else:
+                        logger.warning("Failed to set playback speed in STATE_CHANGED.")
 
     def closeEvent(self, event):
         if self.pipeline:
